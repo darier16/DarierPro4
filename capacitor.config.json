@@ -1,0 +1,9 @@
+
+{
+  "appId": "com.darierpro.app",
+  "appName": "DarierPro",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

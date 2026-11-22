@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="DarierPro" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Pętla Szosowa · Wilanów – Góra Kalwaria – Czersk</name></metadata>
+  <trk><name>Pętla Szosowa · Wilanów – Góra Kalwaria – Czersk</name><trkseg>
+      <trkpt lat="52.1422" lon="21.0525"><ele>98</ele></trkpt>
+      <trkpt lat="52.089" lon="21.112"><ele>92</ele></trkpt>
+      <trkpt lat="52.0215" lon="21.184"><ele>88</ele></trkpt>
+      <trkpt lat="51.976" lon="21.219"><ele>95</ele></trkpt>
+      <trkpt lat="51.951" lon="21.228"><ele>112</ele></trkpt>
+      <trkpt lat="51.894" lon="21.182"><ele>108</ele></trkpt>
+      <trkpt lat="51.882" lon="21.095"><ele>118</ele></trkpt>
+      <trkpt lat="51.931" lon="21.018"><ele>124</ele></trkpt>
+      <trkpt lat="52.008" lon="20.992"><ele>115</ele></trkpt>
+      <trkpt lat="52.085" lon="21.021"><ele>104</ele></trkpt>
+      <trkpt lat="52.1422" lon="21.0525"><ele>98</ele></trkpt>
+  </trkseg></trk>
+</gpx>

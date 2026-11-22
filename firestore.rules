@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // Global Hardened Helpers
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // -------------------------------------------------------------------------
+    // Entity Validation Helpers
+    // -------------------------------------------------------------------------
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+        data.email is string && data.email.size() <= 120 &&
+        data.createdAt is string && data.createdAt.size() <= 40 &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 80)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40));
+    }
+
+    function isValidUserSettings(data, userId) {
+      return data.userId == userId &&
+        data.updatedAt is string && data.updatedAt.size() <= 40 &&
+        (!('intervalsAthleteId' in data) || (data.intervalsAthleteId is string && data.intervalsAthleteId.size() <= 64)) &&
+        (!('intervalsApiKey' in data) || (data.intervalsApiKey is string && data.intervalsApiKey.size() <= 128)) &&
+        (!('userFtp' in data) || data.userFtp is number) &&
+        (!('userWeight' in data) || data.userWeight is number) &&
+        (!('openrouterApiKey' in data) || (data.openrouterApiKey is string && data.openrouterApiKey.size() <= 128)) &&
+        (!('shiftSchedule' in data) || (data.shiftSchedule is string && data.shiftSchedule.size() <= 1000)) &&
+        (!('theme' in data) || (data.theme in ['light', 'dark']));
+    }
+
+    function isValidGearComponent(data, userId) {
+      return data.userId == userId &&
+        data.id is string && isValidId(data.id) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.bikeName is string && data.bikeName.size() <= 100 &&
+        data.trackingType in ['distance_km', 'hours', 'days'] &&
+        data.maxValue is number && data.maxValue > 0 &&
+        data.installedAt is string && data.installedAt.size() <= 20 &&
+        (!('currentValue' in data) || data.currentValue is number) &&
+        (!('baseValue' in data) || data.baseValue is number) &&
+        (!('bikeId' in data) || (data.bikeId is string && data.bikeId.size() <= 64)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+        (!('brandModel' in data) || (data.brandModel is string && data.brandModel.size() <= 120)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+        (!('lastServicedAt' in data) || (data.lastServicedAt is string && data.lastServicedAt.size() <= 20)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40));
+    }
+
+    function isValidServiceRecord(data, userId) {
+      return data.userId == userId &&
+        data.id is string && isValidId(data.id) &&
+        data.componentName is string && data.componentName.size() > 0 && data.componentName.size() <= 100 &&
+        data.serviceDate is string && data.serviceDate.size() <= 20 &&
+        data.createdAt is string && data.createdAt.size() <= 40 &&
+        (!('componentId' in data) || (data.componentId is string && data.componentId.size() <= 64)) &&
+        (!('bikeName' in data) || (data.bikeName is string && data.bikeName.size() <= 100)) &&
+        (!('serviceType' in data) || (data.serviceType is string && data.serviceType.size() <= 50)) &&
+        (!('mileageAtService' in data) || data.mileageAtService is number) &&
+        (!('costPln' in data) || data.costPln is number) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    function isValidUserDataPayload(data, userId) {
+      return data.userId == userId &&
+        data.syncedAt is string && data.syncedAt.size() <= 40 &&
+        data.dataJson is string && data.dataJson.size() <= 500000 &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40));
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Match Rules
+    // -------------------------------------------------------------------------
+
+    // Connectivity test document
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // User Profile Document
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // User Settings Subcollection
+      match /settings/{settingsId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(settingsId) && isValidUserSettings(incoming(), userId);
+        allow delete: if isOwner(userId) && isValidId(settingsId);
+      }
+
+      // Tracked Gear Components Subcollection
+      match /components/{componentId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(componentId) && isValidGearComponent(incoming(), userId);
+        allow delete: if isOwner(userId) && isValidId(componentId);
+      }
+
+      // Maintenance and Service Records Log
+      match /service_records/{recordId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(recordId) && isValidServiceRecord(incoming(), userId);
+        allow delete: if isOwner(userId) && isValidId(recordId);
+      }
+
+      // Synced Athlete Data & Activities Cache
+      match /data/{dataId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(dataId) && isValidUserDataPayload(incoming(), userId);
+        allow delete: if isOwner(userId) && isValidId(dataId);
+      }
+    }
+  }
+}

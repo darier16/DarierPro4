@@ -1,0 +1,286 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Athlete user profile with account details.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique Firebase Authentication UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address.",
+          "maxLength": 120
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the athlete.",
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Account registration timestamp in ISO 8601.",
+          "maxLength": 40
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Profile update timestamp.",
+          "maxLength": 40
+        }
+      },
+      "required": ["userId", "email", "createdAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Application preferences, sport zones, and integration tokens.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "intervalsAthleteId": {
+          "type": "string",
+          "description": "Athlete ID in Intervals.icu.",
+          "maxLength": 64
+        },
+        "intervalsApiKey": {
+          "type": "string",
+          "description": "Personal API key or OAuth token for Intervals.icu.",
+          "maxLength": 128
+        },
+        "userFtp": {
+          "type": "number",
+          "description": "Functional Threshold Power in Watts."
+        },
+        "userWeight": {
+          "type": "number",
+          "description": "Athlete body weight in kg."
+        },
+        "openrouterApiKey": {
+          "type": "string",
+          "description": "Optional OpenRouter AI API Key.",
+          "maxLength": 128
+        },
+        "shiftSchedule": {
+          "type": "string",
+          "description": "Serialized shift work schedule config.",
+          "maxLength": 1000
+        },
+        "theme": {
+          "type": "string",
+          "description": "UI Theme preference ('light' | 'dark').",
+          "enum": ["light", "dark"]
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last settings sync timestamp.",
+          "maxLength": 40
+        }
+      },
+      "required": ["userId", "updatedAt"]
+    },
+    "GearComponent": {
+      "title": "GearComponent",
+      "description": "Tracked cycling or running equipment component with wear thresholds.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the component.",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "bikeId": {
+          "type": "string",
+          "description": "Identifier of the bike or gear item.",
+          "maxLength": 64
+        },
+        "bikeName": {
+          "type": "string",
+          "description": "Name of the bike (e.g. Canyon Aeroad, Trek MTB).",
+          "maxLength": 100
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the component (e.g. Łańcuch Shimano, Opona GP5000).",
+          "maxLength": 100
+        },
+        "category": {
+          "type": "string",
+          "description": "Component category.",
+          "maxLength": 50
+        },
+        "trackingType": {
+          "type": "string",
+          "description": "Wear calculation metric (distance_km, hours, or days).",
+          "enum": ["distance_km", "hours", "days"]
+        },
+        "currentValue": {
+          "type": "number",
+          "description": "Accumulated distance in km, riding hours, or days elapsed."
+        },
+        "maxValue": {
+          "type": "number",
+          "description": "Max threshold for service/replacement."
+        },
+        "baseValue": {
+          "type": "number",
+          "description": "Initial offset value when installed."
+        },
+        "installedAt": {
+          "type": "string",
+          "description": "Installation date (YYYY-MM-DD).",
+          "maxLength": 20
+        },
+        "lastServicedAt": {
+          "type": "string",
+          "description": "Date of last service or replacement (YYYY-MM-DD).",
+          "maxLength": 20
+        },
+        "brandModel": {
+          "type": "string",
+          "description": "Manufacturer brand and model specifications.",
+          "maxLength": 120
+        },
+        "notes": {
+          "type": "string",
+          "description": "Maintenance notes, chain wax type, or comments.",
+          "maxLength": 500
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last modification timestamp.",
+          "maxLength": 40
+        }
+      },
+      "required": ["id", "userId", "name", "bikeName", "trackingType", "maxValue", "installedAt"]
+    },
+    "ServiceRecord": {
+      "title": "ServiceRecord",
+      "description": "Historical log of maintenance, component replacements, and expenses.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique log record ID.",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "componentId": {
+          "type": "string",
+          "description": "Associated component ID.",
+          "maxLength": 64
+        },
+        "componentName": {
+          "type": "string",
+          "description": "Name of the serviced component.",
+          "maxLength": 100
+        },
+        "bikeName": {
+          "type": "string",
+          "description": "Name of the bike.",
+          "maxLength": 100
+        },
+        "serviceDate": {
+          "type": "string",
+          "description": "Date of the service event (YYYY-MM-DD).",
+          "maxLength": 20
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "Type of service (wymiana, serwis, czyszczenie, inne).",
+          "maxLength": 50
+        },
+        "mileageAtService": {
+          "type": "number",
+          "description": "Accumulated mileage or hours at replacement time."
+        },
+        "costPln": {
+          "type": "number",
+          "description": "Cost in PLN."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Mechanic or rider notes.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Log creation timestamp in ISO 8601.",
+          "maxLength": 40
+        }
+      },
+      "required": ["id", "userId", "componentName", "serviceDate", "createdAt"]
+    },
+    "UserDataPayload": {
+      "title": "UserDataPayload",
+      "description": "Cloud backup of synchronized athlete data and activities cache.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "syncedAt": {
+          "type": "string",
+          "description": "Synchronization timestamp in ISO 8601.",
+          "maxLength": 40
+        },
+        "dataJson": {
+          "type": "string",
+          "description": "Serialized athlete activities and PMC summary cache.",
+          "maxLength": 500000
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp.",
+          "maxLength": 40
+        }
+      },
+      "required": ["userId", "syncedAt", "dataJson"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document."
+    },
+    "/users/{userId}/settings/{settingsId}": {
+      "schema": "UserSettings",
+      "description": "Athlete settings and tokens."
+    },
+    "/users/{userId}/components/{componentId}": {
+      "schema": "GearComponent",
+      "description": "Bicycle components with wear and replacement tracking."
+    },
+    "/users/{userId}/service_records/{recordId}": {
+      "schema": "ServiceRecord",
+      "description": "Maintenance history and component replacement log."
+    },
+    "/users/{userId}/data/{dataId}": {
+      "schema": "UserDataPayload",
+      "description": "Cloud-synced activities and athlete cached state."
+    }
+  }
+}

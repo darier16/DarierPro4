@@ -1,0 +1,6 @@
+{
+  "name": "DarierPro — Zaawansowana Analityka Kolarstwa i Treningu",
+  "description": "Profesjonalna analityka kolarstwa i treningu, monitorowanie formy (CTL/ATL/TSB), stref mocy FTP i tętna oraz coaching AI dla danych z Intervals.icu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

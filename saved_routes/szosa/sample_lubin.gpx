@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="DarierPro" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Pętla Dolnośląska · Lubin – Chocianów</name></metadata>
+  <trk><name>Pętla Dolnośląska · Lubin – Chocianów</name><trkseg>
+      <trkpt lat="51.4005" lon="16.2015"><ele>132</ele></trkpt>
+      <trkpt lat="51.4182" lon="16.1781"><ele>141</ele></trkpt>
+      <trkpt lat="51.4465" lon="16.1322"><ele>158</ele></trkpt>
+      <trkpt lat="51.481" lon="16.0715"><ele>175</ele></trkpt>
+      <trkpt lat="51.4982" lon="16.0124"><ele>162</ele></trkpt>
+      <trkpt lat="51.4641" lon="15.963"><ele>148</ele></trkpt>
+      <trkpt lat="51.4188" lon="15.9844"><ele>155</ele></trkpt>
+      <trkpt lat="51.3752" lon="16.0385"><ele>184</ele></trkpt>
+      <trkpt lat="51.351" lon="16.105"><ele>196</ele></trkpt>
+      <trkpt lat="51.3622" lon="16.1588"><ele>165</ele></trkpt>
+      <trkpt lat="51.3845" lon="16.192"><ele>142</ele></trkpt>
+      <trkpt lat="51.4005" lon="16.2015"><ele>132</ele></trkpt>
+  </trkseg></trk>
+</gpx>

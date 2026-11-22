@@ -1,0 +1,115 @@
+{
+  "id": "sample_mazowsze",
+  "name": "Pętla Szosowa · Wilanów – Góra Kalwaria – Czersk",
+  "fileName": "Mazowsze_Gora_Kalwaria_Classic.gpx",
+  "folder": "szosa",
+  "totalDistanceKm": 69.6,
+  "elevationGainM": 40,
+  "elevationLossM": 40,
+  "minEleM": 88,
+  "maxEleM": 124,
+  "rawPointsCount": 11,
+  "points": [
+    {
+      "lat": 52.1422,
+      "lng": 21.0525,
+      "ele": 98,
+      "km": 0,
+      "bearingDeg": 145,
+      "slopePct": -0.1
+    },
+    {
+      "lat": 52.089,
+      "lng": 21.112,
+      "ele": 92,
+      "km": 7.18,
+      "bearingDeg": 146,
+      "slopePct": -0.1
+    },
+    {
+      "lat": 52.0215,
+      "lng": 21.184,
+      "ele": 88,
+      "km": 16.15,
+      "bearingDeg": 150,
+      "slopePct": 0
+    },
+    {
+      "lat": 51.976,
+      "lng": 21.219,
+      "ele": 95,
+      "km": 21.75,
+      "bearingDeg": 159,
+      "slopePct": 0.3
+    },
+    {
+      "lat": 51.951,
+      "lng": 21.228,
+      "ele": 112,
+      "km": 24.6,
+      "bearingDeg": 196,
+      "slopePct": 0.1
+    },
+    {
+      "lat": 51.894,
+      "lng": 21.182,
+      "ele": 108,
+      "km": 31.68,
+      "bearingDeg": 230,
+      "slopePct": 0.1
+    },
+    {
+      "lat": 51.882,
+      "lng": 21.095,
+      "ele": 118,
+      "km": 37.8,
+      "bearingDeg": 290,
+      "slopePct": 0.1
+    },
+    {
+      "lat": 51.931,
+      "lng": 21.018,
+      "ele": 124,
+      "km": 45.38,
+      "bearingDeg": 333,
+      "slopePct": 0
+    },
+    {
+      "lat": 52.008,
+      "lng": 20.992,
+      "ele": 115,
+      "km": 54.13,
+      "bearingDeg": 1,
+      "slopePct": -0.1
+    },
+    {
+      "lat": 52.085,
+      "lng": 21.021,
+      "ele": 104,
+      "km": 62.92,
+      "bearingDeg": 15,
+      "slopePct": -0.1
+    },
+    {
+      "lat": 52.1422,
+      "lng": 21.0525,
+      "ele": 98,
+      "km": 69.63,
+      "bearingDeg": 19,
+      "slopePct": -0.1
+    }
+  ],
+  "bounds": {
+    "north": 52.1422,
+    "south": 51.882,
+    "east": 21.228,
+    "west": 20.992
+  },
+  "savedAt": "2026-11-17T12:42:22.574Z",
+  "bikeType": "road",
+  "avgSpeedKmh": 32,
+  "surface": "asfalt",
+  "notes": "Klasyczna runda szosowa pod Warszawą, kawa na zamku w Czersku.",
+  "favorite": false,
+  "isBuiltinSample": true
+}

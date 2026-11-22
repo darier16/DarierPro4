@@ -1,0 +1,123 @@
+{
+  "id": "sample_lubin",
+  "name": "Pętla Dolnośląska · Lubin – Chocianów",
+  "fileName": "Budowniczych_LGOM_Lubin_Petla.gpx",
+  "folder": "szosa",
+  "totalDistanceKm": 48.3,
+  "elevationGainM": 91,
+  "elevationLossM": 91,
+  "minEleM": 132,
+  "maxEleM": 196,
+  "rawPointsCount": 12,
+  "points": [
+    {
+      "lat": 51.4005,
+      "lng": 16.2015,
+      "ele": 132,
+      "km": 0,
+      "bearingDeg": 320,
+      "slopePct": 0.4
+    },
+    {
+      "lat": 51.4182,
+      "lng": 16.1781,
+      "ele": 141,
+      "km": 2.55,
+      "bearingDeg": 317,
+      "slopePct": 0.4
+    },
+    {
+      "lat": 51.4465,
+      "lng": 16.1322,
+      "ele": 158,
+      "km": 7.03,
+      "bearingDeg": 313,
+      "slopePct": 0.3
+    },
+    {
+      "lat": 51.481,
+      "lng": 16.0715,
+      "ele": 175,
+      "km": 12.72,
+      "bearingDeg": 305,
+      "slopePct": 0
+    },
+    {
+      "lat": 51.4982,
+      "lng": 16.0124,
+      "ele": 162,
+      "km": 17.23,
+      "bearingDeg": 256,
+      "slopePct": -0.3
+    },
+    {
+      "lat": 51.4641,
+      "lng": 15.963,
+      "ele": 148,
+      "km": 22.34,
+      "bearingDeg": 192,
+      "slopePct": -0.1
+    },
+    {
+      "lat": 51.4188,
+      "lng": 15.9844,
+      "ele": 155,
+      "km": 27.59,
+      "bearingDeg": 152,
+      "slopePct": 0.3
+    },
+    {
+      "lat": 51.3752,
+      "lng": 16.0385,
+      "ele": 184,
+      "km": 33.72,
+      "bearingDeg": 132,
+      "slopePct": 0.4
+    },
+    {
+      "lat": 51.351,
+      "lng": 16.105,
+      "ele": 196,
+      "km": 39.07,
+      "bearingDeg": 100,
+      "slopePct": -0.2
+    },
+    {
+      "lat": 51.3622,
+      "lng": 16.1588,
+      "ele": 165,
+      "km": 43.01,
+      "bearingDeg": 58,
+      "slopePct": -0.8
+    },
+    {
+      "lat": 51.3845,
+      "lng": 16.192,
+      "ele": 142,
+      "km": 46.39,
+      "bearingDeg": 35,
+      "slopePct": -0.6
+    },
+    {
+      "lat": 51.4005,
+      "lng": 16.2015,
+      "ele": 132,
+      "km": 48.29,
+      "bearingDeg": 20,
+      "slopePct": -0.5
+    }
+  ],
+  "bounds": {
+    "north": 51.4982,
+    "south": 51.351,
+    "east": 16.2015,
+    "west": 15.963
+  },
+  "savedAt": "2026-11-17T12:42:22.572Z",
+  "bikeType": "road",
+  "avgSpeedKmh": 31,
+  "surface": "asfalt",
+  "notes": "Szybka pętla szosowa po równym asfalcie, sklep po 35 km w Chocianowie.",
+  "favorite": true,
+  "isBuiltinSample": true
+}
