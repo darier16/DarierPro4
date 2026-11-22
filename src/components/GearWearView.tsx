@@ -1,15 +1,25 @@
 import React, { useMemo, useState } from "react";
 import {
+  AlertCircle,
   AlertTriangle,
   Bike,
+  Calculator,
   Calendar,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Compass,
+  Copy,
   DollarSign,
   Droplets,
   Edit2,
+  ExternalLink,
+  FileText,
   Filter,
+  Flame,
+  HelpCircle,
   History,
   Info,
   Layers,
@@ -18,7 +28,10 @@ import {
   RotateCcw,
   Search,
   Settings2,
+  Share2,
   ShieldAlert,
+  ShoppingCart,
+  Sliders,
   Sparkles,
   Tag,
   Trash2,
@@ -60,6 +73,8 @@ export interface TrackedComponent {
   baseValue: number; // manual offset at install
   installedAt: string; // YYYY-MM-DD
   lastServicedAt?: string;
+  lastLubeDate?: string;
+  lastLubeKm?: number;
   brandModel?: string;
   notes?: string;
 }
@@ -70,7 +85,7 @@ export interface ServiceLogEntry {
   componentName: string;
   bikeName: string;
   serviceDate: string;
-  serviceType: "wymiana" | "serwis" | "dolewka" | "regulacja" | "inna";
+  serviceType: "wymiana" | "serwis" | "dolewka" | "regulacja" | "smarowanie" | "inna";
   mileageAtService?: number;
   costPln?: number;
   notes?: string;
@@ -250,6 +265,7 @@ interface GearWearViewProps {
   cloudServiceRecords?: CloudServiceRecord[];
   onSaveComponentsToCloud?: (components: CloudGearComponent[]) => Promise<void>;
   onSaveServiceRecordToCloud?: (record: CloudServiceRecord) => Promise<void>;
+  onCriticalCountChange?: (count: number) => void;
 }
 
 export const GearWearView: React.FC<GearWearViewProps> = ({
@@ -259,6 +275,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
   cloudServiceRecords,
   onSaveComponentsToCloud,
   onSaveServiceRecordToCloud,
+  onCriticalCountChange,
 }) => {
   const sourceActivities = useMemo(() => {
     if (allActivities && allActivities.length > activities.length) {
@@ -279,7 +296,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
     return DEFAULT_BIKES;
   });
 
-  // Tracked components state
+  // Tracked components state with realistic starter thresholds (including >90% flag)
   const [components, setComponents] = useState<TrackedComponent[]>(() => {
     if (cloudComponents && cloudComponents.length > 0) {
       return cloudComponents.map((c) => ({
@@ -304,10 +321,9 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    // Starter defaults
-    const today = localTodayIso();
+
     const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - 65);
+    pastDate.setDate(pastDate.getDate() - 75);
     const pastIso = pastDate.toISOString().slice(0, 10);
 
     return [
@@ -319,10 +335,12 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         category: "chain",
         trackingType: "distance_km",
         maxValue: 3000,
-        baseValue: 450,
+        baseValue: 2780, // High wear -> hits >92%
         installedAt: pastIso,
-        brandModel: "Shimano Dura-Ace 12s, woskowany Silca",
-        notes: "Smarowany woskiem na gorąco, kontrola przymiarem co 500 km",
+        lastLubeDate: "2026-11-12",
+        lastLubeKm: 180,
+        brandModel: "Shimano Dura-Ace 12s, woskowany Silca Hot Melt",
+        notes: "Wyciągnięcie 0.48% zmierzone przymiarem Park Tool CC-4",
       },
       {
         id: "c2",
@@ -332,10 +350,10 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         category: "tire_rear",
         trackingType: "distance_km",
         maxValue: 4200,
-        baseValue: 800,
+        baseValue: 3450, // Warning zone ~82%
         installedAt: pastIso,
         brandModel: "Continental GP5000 S TR 28mm",
-        notes: "Ciśnienie 4.6 bar, system Tubeless",
+        notes: "Ciśnienie 4.6 bar, system Tubeless, wskaźniki TWI jeszcze widoczne",
       },
       {
         id: "c3",
@@ -345,10 +363,10 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         category: "brake_pads_front",
         trackingType: "distance_km",
         maxValue: 5500,
-        baseValue: 1200,
+        baseValue: 1200, // Good zone ~22%
         installedAt: pastIso,
         brandModel: "SwissStop Disc RS",
-        notes: "Mieszanka organiczna, wysoka kultura pracy",
+        notes: "Mieszanka organiczna, wysoka kultura pracy, grubość 2.4 mm",
       },
       {
         id: "c4",
@@ -371,10 +389,10 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         category: "chain",
         trackingType: "distance_km",
         maxValue: 2200,
-        baseValue: 300,
+        baseValue: 2020, // Critical zone >91%
         installedAt: pastIso,
         brandModel: "SRAM Eagle XX1 12s",
-        notes: "Oliwka ceramiczna na trudne warunki",
+        notes: "Oliwka ceramiczna na trudne warunki, kontrola przymiarem 0.5%",
       },
       {
         id: "c6",
@@ -384,7 +402,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         category: "suspension_fork",
         trackingType: "hours",
         maxValue: 50,
-        baseValue: 12,
+        baseValue: 14,
         installedAt: pastIso,
         brandModel: "RockShox SID SL Ultimate 100mm",
         notes: "Wymiana uszczelek kurzowych SKF i oleju Maxima Plush",
@@ -441,21 +459,28 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
     ];
   });
 
-  // UI state filters
+  // UI Filters
   const [selectedBikeId, setSelectedBikeId] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "warning" | "good">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "critical" | "warning" | "good">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [showLogDrawer, setShowLogDrawer] = useState<boolean>(false);
 
-  // Modals
+  // Modals & Panels
+  const [showLogDrawer, setShowLogDrawer] = useState<boolean>(false);
   const [replaceModalComponent, setReplaceModalComponent] = useState<TrackedComponent | null>(null);
   const [addComponentModal, setAddComponentModal] = useState<boolean>(false);
   const [editingComponent, setEditingComponent] = useState<TrackedComponent | null>(null);
   const [addBikeModal, setAddBikeModal] = useState<boolean>(false);
 
+  // Cool Improvement Modals:
+  const [showSimulatorModal, setShowSimulatorModal] = useState<boolean>(false);
+  const [simulatorTripKm, setSimulatorTripKm] = useState<number>(200);
+  const [showShoppingListModal, setShowShoppingListModal] = useState<boolean>(false);
+  const [showDiagnosticsGuide, setShowDiagnosticsGuide] = useState<boolean>(false);
+  const [quickLubeComponent, setQuickLubeComponent] = useState<TrackedComponent | null>(null);
+  const [copiedClipboard, setCopiedClipboard] = useState<boolean>(false);
+
   // Calculate accumulated values for each component
   const calculatedComponents = useMemo(() => {
-    // Determine weekly athlete velocity (km/week and hours/week over last 4 weeks)
     const fourWeeksAgo = new Date();
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
     const fourWeeksIso = fourWeeksAgo.toISOString().slice(0, 10);
@@ -469,8 +494,8 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         rolling4wSeconds += a.moving_time || 0;
       }
     }
-    const avgWeeklyKm = Math.max(30, Math.round(rolling4wMeters / 1000 / 4));
-    const avgWeeklyHours = Math.max(1.5, Number((rolling4wSeconds / 3600 / 4).toFixed(1)));
+    const avgWeeklyKm = Math.max(35, Math.round(rolling4wMeters / 1000 / 4));
+    const avgWeeklyHours = Math.max(1.8, Number((rolling4wSeconds / 3600 / 4).toFixed(1)));
 
     return components.map((comp) => {
       const bike = bikes.find((b) => b.id === comp.bikeId);
@@ -503,27 +528,69 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
 
       // Remaining time estimation
       let remainingEstimateText = "";
+      let estimatedReplacementDate = "";
+
       if (comp.trackingType === "distance_km") {
         const weeksLeft = (remaining / avgWeeklyKm).toFixed(1);
         remainingEstimateText =
           remaining === 0
-            ? "Limit przekroczony!"
+            ? "Limit 100% przekroczony!"
+            : percent >= 90
+            ? `PILNE: Pozostało tylko ~${remaining} km (~${weeksLeft} tyg.)`
             : `Pozostało ~${remaining} km (ok. ${weeksLeft} tyg.)`;
+
+        if (remaining > 0 && avgWeeklyKm > 0) {
+          const daysLeft = Math.round((remaining / avgWeeklyKm) * 7);
+          const target = new Date();
+          target.setDate(target.getDate() + daysLeft);
+          estimatedReplacementDate = target.toLocaleDateString("pl-PL", {
+            day: "numeric",
+            month: "short",
+          });
+        }
       } else if (comp.trackingType === "hours") {
         const weeksLeft = (remaining / avgWeeklyHours).toFixed(1);
         remainingEstimateText =
           remaining === 0
             ? "Wymagany natychmiastowy serwis!"
+            : percent >= 90
+            ? `PILNE: Pozostało ~${remaining.toFixed(1)} h (~${weeksLeft} tyg.)`
             : `Pozostało ~${remaining.toFixed(1)} h (ok. ${weeksLeft} tyg.)`;
+
+        if (remaining > 0 && avgWeeklyHours > 0) {
+          const daysLeft = Math.round((remaining / avgWeeklyHours) * 7);
+          const target = new Date();
+          target.setDate(target.getDate() + daysLeft);
+          estimatedReplacementDate = target.toLocaleDateString("pl-PL", {
+            day: "numeric",
+            month: "short",
+          });
+        }
       } else {
         remainingEstimateText =
           remaining === 0
             ? "Zalecana natychmiastowa dolewka!"
+            : percent >= 90
+            ? `PILNE: Pozostało ~${remaining} dni płynności`
             : `Pozostało ~${remaining} dni płynności`;
+
+        if (remaining > 0) {
+          const target = new Date();
+          target.setDate(target.getDate() + remaining);
+          estimatedReplacementDate = target.toLocaleDateString("pl-PL", {
+            day: "numeric",
+            month: "short",
+          });
+        }
       }
 
+      // Exact 90% indicator tiering
+      const isCritical = percent >= 90;
+      const isOverLimit = percent >= 100;
+      const isWarning = percent >= 75 && percent < 90;
+
       let statusTier: "optimal" | "good" | "warning" | "danger" = "optimal";
-      if (percent >= 95) statusTier = "danger";
+      if (percent >= 90) statusTier = "danger";
       else if (percent >= 75) statusTier = "warning";
       else if (percent >= 50) statusTier = "good";
 
@@ -533,12 +600,16 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         wearPercent: percent,
         remainingValue: remaining,
         remainingEstimateText,
+        estimatedReplacementDate,
+        isCritical,
+        isOverLimit,
+        isWarning,
         statusTier,
       };
     });
   }, [components, bikes, sourceActivities]);
 
-  // Save to localStorage & Cloud
+  // Persist components
   const persistComponents = (newList: TrackedComponent[]) => {
     setComponents(newList);
     try {
@@ -573,13 +644,29 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
     try {
       localStorage.setItem("darierpro_service_logs", JSON.stringify(newLogs));
     } catch {}
+    if (onSaveServiceRecordToCloud && newLogs[0]) {
+      onSaveServiceRecordToCloud({
+        id: newLogs[0].id,
+        userId: "",
+        componentId: newLogs[0].componentId,
+        componentName: newLogs[0].componentName,
+        bikeName: newLogs[0].bikeName,
+        serviceDate: newLogs[0].serviceDate,
+        serviceType: newLogs[0].serviceType,
+        mileageAtService: newLogs[0].mileageAtService,
+        costPln: newLogs[0].costPln,
+        notes: newLogs[0].notes,
+        createdAt: newLogs[0].createdAt,
+      }).catch((e) => console.warn("Cloud log sync note:", e));
+    }
   };
 
-  // Filter components
+  // Filter components including >90% flag
   const filteredComponents = useMemo(() => {
     return calculatedComponents.filter((c) => {
       if (selectedBikeId !== "all" && c.bikeId !== selectedBikeId) return false;
-      if (statusFilter === "warning" && c.wearPercent < 75) return false;
+      if (statusFilter === "critical" && c.wearPercent < 90) return false;
+      if (statusFilter === "warning" && (c.wearPercent < 75 || c.wearPercent >= 90)) return false;
       if (statusFilter === "good" && c.wearPercent >= 75) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -593,29 +680,67 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
     });
   }, [calculatedComponents, selectedBikeId, statusFilter, searchQuery]);
 
-  // Overall Statistics
+  // Overall Statistics with >90% flag
   const stats = useMemo(() => {
     const total = calculatedComponents.length;
-    const warningCount = calculatedComponents.filter((c) => c.wearPercent >= 75 && c.wearPercent < 95).length;
-    const criticalCount = calculatedComponents.filter((c) => c.wearPercent >= 95).length;
+    const criticalCount = calculatedComponents.filter((c) => c.wearPercent >= 90).length;
+    const criticalList = calculatedComponents.filter((c) => c.wearPercent >= 90);
+    const warningCount = calculatedComponents.filter(
+      (c) => c.wearPercent >= 75 && c.wearPercent < 90
+    ).length;
 
-    // Find component closest to exhaustion
-    const sortedByUrgency = [...calculatedComponents].sort(
-      (a, b) => b.wearPercent - a.wearPercent
-    );
-    const mostUrgent = sortedByUrgency[0];
+    // Find most urgent
+    const sorted = [...calculatedComponents].sort((a, b) => b.wearPercent - a.wearPercent);
+    const mostUrgent = sorted[0];
 
-    // Total expense
     const totalSpent = serviceLogs.reduce((acc, l) => acc + (l.costPln || 0), 0);
 
     return {
       total,
-      warningCount,
       criticalCount,
+      criticalList,
+      warningCount,
       mostUrgent,
       totalSpent,
     };
   }, [calculatedComponents, serviceLogs]);
+
+  // Report critical count up to App/TopBar
+  React.useEffect(() => {
+    if (onCriticalCountChange) {
+      onCriticalCountChange(stats.criticalCount);
+    }
+  }, [stats.criticalCount, onCriticalCountChange]);
+
+  // Trip simulator calculation
+  const simulatedTripResults = useMemo(() => {
+    const targetBike = bikes.find((b) => b.id === selectedBikeId) || bikes[0];
+    const bikeComps = calculatedComponents.filter(
+      (c) => c.bikeId === (selectedBikeId === "all" ? bikes[0].id : selectedBikeId)
+    );
+
+    return bikeComps.map((c) => {
+      let added = 0;
+      if (c.trackingType === "distance_km") {
+        added = simulatorTripKm;
+      } else if (c.trackingType === "hours") {
+        // Assume ~25 km/h avg pace
+        added = Number((simulatorTripKm / 25).toFixed(1));
+      }
+      const projectedCurrent = c.calculatedCurrent + added;
+      const projectedPercent = Math.min(200, Math.round((projectedCurrent / c.maxValue) * 100));
+      const willCross90 = c.wearPercent < 90 && projectedPercent >= 90;
+      const willCross100 = c.wearPercent < 100 && projectedPercent >= 100;
+
+      return {
+        ...c,
+        projectedCurrent,
+        projectedPercent,
+        willCross90,
+        willCross100,
+      };
+    });
+  }, [calculatedComponents, selectedBikeId, bikes, simulatorTripKm]);
 
   return (
     <div className="space-y-6 pb-16">
@@ -635,23 +760,48 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Usprawnienie: Symulator Trasy */}
           <button
             type="button"
-            onClick={() => setShowLogDrawer(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-colors"
+            onClick={() => setShowSimulatorModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-xs font-bold hover:bg-rose-100 transition-colors cursor-pointer"
           >
-            <History className="h-4 w-4 text-slate-500" />
-            <span>Książka Serwisowa ({serviceLogs.length})</span>
+            <Compass className="h-4 w-4" />
+            <span>Symulator Wyprawy</span>
+          </button>
+
+          {/* Usprawnienie: Lista Zakupów / Warsztat */}
+          <button
+            type="button"
+            onClick={() => setShowShoppingListModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-colors cursor-pointer"
+          >
+            <ShoppingCart className="h-4 w-4 text-slate-500" />
+            <span>Lista Zakupów / Warsztat</span>
+          </button>
+
+          {/* Usprawnienie: Poradnik Diagnostyczny */}
+          <button
+            type="button"
+            onClick={() => setShowDiagnosticsGuide(!showDiagnosticsGuide)}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${
+              showDiagnosticsGuide
+                ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <HelpCircle className="h-4 w-4 text-amber-500" />
+            <span>Poradnik Mechanika</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setAddBikeModal(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-colors"
+            onClick={() => setShowLogDrawer(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-colors cursor-pointer"
           >
-            <Bike className="h-4 w-4 text-slate-500" />
-            <span>Dodaj Rower</span>
+            <History className="h-4 w-4 text-slate-500" />
+            <span>Książka ({serviceLogs.length})</span>
           </button>
 
           <button
@@ -660,13 +810,125 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
               setEditingComponent(null);
               setAddComponentModal(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white px-4 py-2 text-xs sm:text-sm font-bold shadow-md shadow-rose-600/25 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white px-4 py-2 text-xs font-bold shadow-md shadow-rose-600/25 transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Nowy Komponent</span>
           </button>
         </div>
       </div>
+
+      {/* Prominent Visual Flag Banner for components exceeding 90% */}
+      {stats.criticalCount > 0 && (
+        <div className="relative overflow-hidden rounded-2xl border-2 border-rose-500/80 bg-gradient-to-r from-rose-500/15 via-rose-600/10 to-amber-500/10 dark:from-rose-950/60 dark:via-rose-900/40 dark:to-amber-950/30 p-5 shadow-lg shadow-rose-600/10 animate-fadeIn">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-600 text-white shadow-md shadow-rose-600/30 animate-pulse">
+                <ShieldAlert className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase px-2 py-0.5 tracking-wider">
+                    FLAGA OSTRZEGAWCZA &gt; 90%
+                  </span>
+                  <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                    Wymagana pilna wymiana lub inspekcja!
+                  </span>
+                </div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white mt-1">
+                  {stats.criticalCount === 1
+                    ? "1 komponent przekroczył 90% limitu żywotności!"
+                    : `${stats.criticalCount} komponenty przekroczyły 90% limitu żywotności!`}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                  Dotyczy:{" "}
+                  <strong>
+                    {stats.criticalList.map((c) => `${c.name} (${c.wearPercent}%)`).join(", ")}
+                  </strong>
+                  . Dalsza eksploatacja grozi zerwaniem łańcucha, zniszczeniem kasety lub nagłą awarią w trasie.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("critical")}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 text-xs font-bold shadow-sm transition-colors cursor-pointer"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span>Pokaż tylko &gt;90%</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowShoppingListModal(true)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 px-3.5 py-2 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+              >
+                <span>Generuj zlecenia</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expandable Mechanic Diagnostics Guide */}
+      {showDiagnosticsGuide && (
+        <div className="rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30 p-5 shadow-xs animate-fadeIn space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white">
+                Poradnik Warsztatowy: Kiedy bezwzględnie wymieniać części rowerowe?
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDiagnosticsGuide(false)}
+              className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+            >
+              Zamknij ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-slate-900 p-3.5 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>⛓️ Łańcuch napędowy</span>
+              </span>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Dla napędów 11 i 12s wymieniaj łańcuch przy <strong>0.5%</strong> wyciągnięcia (zanim zniszczy kasetę!). Dla napędów 8-10s granicą jest <strong>0.75%</strong>.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-slate-900 p-3.5 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>🛞 Opony i bieżnik</span>
+              </span>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Szukaj wskaźników <strong>TWI</strong> (małe wgłębienia w czole opony). Gdy wgłębienie znika lub opona robi się płaska na szczycie — czas na wymianę!
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-slate-900 p-3.5 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>🛑 Klocki tarczowe</span>
+              </span>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Minimalna grubość samej okładziny to <strong>1.5 mm</strong>. Jeśli metalowa sprężynka rozporowa zaczyna dotykać tarczy, wymieniaj natychmiast.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-slate-900 p-3.5 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>💧 Mleko uszczelniające</span>
+              </span>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                W temperaturze letniej mleko wysycha po <strong>60-90 dniach</strong>. Wstrząśnij kołem — jeśli nie słychać chlupotania, natychmiast dolej 50-70 ml.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top Metric KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -692,16 +954,22 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
           </div>
         </div>
 
-        {/* Critical Alerts */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 p-4 shadow-xs">
+        {/* Critical Alerts (>90%) */}
+        <div
+          className={`rounded-2xl border p-4 shadow-xs transition-all ${
+            stats.criticalCount > 0
+              ? "border-rose-400 bg-rose-50/40 dark:border-rose-800 dark:bg-rose-950/30 ring-1 ring-rose-500/30"
+              : "border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/90"
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Wymagają wymiany
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+              Krytyczne zużycie (&gt;90%)
             </span>
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-xl ${
                 stats.criticalCount > 0
-                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 animate-pulse"
+                  ? "bg-rose-600 text-white animate-pulse shadow-xs"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-500"
               }`}
             >
@@ -719,13 +987,13 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
               {stats.criticalCount}
             </span>
             <span className="text-xs text-slate-500">
-              {stats.warningCount > 0 ? `+ ${stats.warningCount} w strefie ostrzeżenia` : "Wszystko w normie"}
+              {stats.warningCount > 0 ? `+ ${stats.warningCount} w strefie 75-90%` : "Brak ostrzeżeń"}
             </span>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
             {stats.criticalCount > 0
-              ? "Przekroczono limit zalecany przez producenta"
-              : "Brak części w stanie krytycznym"}
+              ? "Wymaga bezzwłocznej wymiany części"
+              : "Wszystkie komponenty poniżej 90%"}
           </p>
         </div>
 
@@ -733,7 +1001,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Najbliższy serwis
+              Najbardziej wyeksploatowany
             </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <Clock className="h-4 w-4" />
@@ -741,12 +1009,18 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
           </div>
           {stats.mostUrgent ? (
             <div className="mt-2.5">
-              <div className="truncate font-semibold text-sm text-slate-900 dark:text-white">
+              <div className="truncate font-bold text-sm text-slate-900 dark:text-white">
                 {stats.mostUrgent.name}
               </div>
               <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
                 <span>{stats.mostUrgent.bikeName}</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400">
+                <span
+                  className={`font-black ${
+                    stats.mostUrgent.wearPercent >= 90
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-amber-600 dark:text-amber-400"
+                  }`}
+                >
                   {stats.mostUrgent.wearPercent}%
                 </span>
               </div>
@@ -787,7 +1061,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
           <button
             type="button"
             onClick={() => setSelectedBikeId("all")}
-            className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+            className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               selectedBikeId === "all"
                 ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -798,15 +1072,19 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
 
           {bikes.map((b) => {
             const count = calculatedComponents.filter((c) => c.bikeId === b.id).length;
-            const hasAlert = calculatedComponents.some(
-              (c) => c.bikeId === b.id && c.wearPercent >= 80
+            const hasCritical = calculatedComponents.some(
+              (c) => c.bikeId === b.id && c.wearPercent >= 90
             );
+            const hasWarning = calculatedComponents.some(
+              (c) => c.bikeId === b.id && c.wearPercent >= 75 && c.wearPercent < 90
+            );
+
             return (
               <button
                 key={b.id}
                 type="button"
                 onClick={() => setSelectedBikeId(b.id)}
-                className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+                className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
                   selectedBikeId === b.id
                     ? "bg-rose-600 text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -815,20 +1093,33 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                 <span>{b.name}</span>
                 <span
                   className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                    hasAlert
-                      ? "bg-rose-500/20 text-rose-300"
+                    hasCritical
+                      ? "bg-rose-500 text-white animate-pulse"
                       : "bg-black/10 dark:bg-white/10"
                   }`}
                 >
                   {count}
                 </span>
-                {hasAlert && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+                {hasCritical ? (
+                  <span className="h-2 w-2 rounded-full bg-rose-400 animate-ping" />
+                ) : hasWarning ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                ) : null}
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => setAddBikeModal(true)}
+            className="shrink-0 flex items-center gap-1 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Dodaj rower</span>
+          </button>
         </div>
 
-        {/* Search & Status Filter Row */}
+        {/* Search & Status Filter Row with >90% flag filter */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -841,40 +1132,54 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <span className="text-xs text-slate-400 hidden sm:inline">Filtr:</span>
+          <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end overflow-x-auto no-scrollbar">
+            <span className="text-xs text-slate-400 hidden sm:inline mr-1">Filtruj:</span>
             <button
               type="button"
               onClick={() => setStatusFilter("all")}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
                 statusFilter === "all"
-                  ? "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100"
-                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400"
               }`}
             >
-              Wszystkie
+              Wszystkie ({calculatedComponents.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("critical")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                statusFilter === "critical"
+                  ? "bg-rose-600 text-white shadow-xs"
+                  : "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300"
+              }`}
+            >
+              <span>🚨 Zagrożone (&gt;90%)</span>
+              <span className="rounded-full bg-rose-700/20 text-[10px] px-1.5 py-0.2">
+                {stats.criticalCount}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter("warning")}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
                 statusFilter === "warning"
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  ? "bg-amber-500 text-white"
+                  : "bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-300"
               }`}
             >
-              ⚠️ Do serwisu (&gt;75%)
+              ⚠️ Uwaga (75-90%)
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter("good")}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
                 statusFilter === "good"
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300"
               }`}
             >
-              ✅ W normie
+              ✅ W normie (&lt;75%)
             </button>
           </div>
         </div>
@@ -888,36 +1193,55 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
             Brak komponentów spełniających kryteria
           </h3>
           <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-            Dodaj komponenty do tego roweru lub zresetuj filtry wyszukiwania.
+            {statusFilter === "critical"
+              ? "Świetna wiadomość! Żaden z Twoich komponentów nie przekroczył 90% zużycia."
+              : "Dodaj komponenty do tego roweru lub zresetuj filtry wyszukiwania."}
           </p>
           <button
             type="button"
-            onClick={() => setAddComponentModal(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-rose-600 text-white px-4 py-2 text-xs font-bold hover:bg-rose-500 transition-colors"
+            onClick={() => setStatusFilter("all")}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 text-xs font-bold transition-colors cursor-pointer"
           >
-            <Plus className="h-4 w-4" />
-            <span>Dodaj pierwszy komponent</span>
+            <span>Pokaż wszystkie komponenty</span>
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredComponents.map((c) => {
-            const isCritical = c.wearPercent >= 95;
-            const isWarning = c.wearPercent >= 75 && c.wearPercent < 95;
+            const isCritical = c.wearPercent >= 90;
+            const isOverLimit = c.wearPercent >= 100;
+            const isWarning = c.wearPercent >= 75 && c.wearPercent < 90;
 
             return (
               <div
                 key={c.id}
-                className={`relative flex flex-col justify-between rounded-2xl border transition-all p-5 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md ${
-                  isCritical
-                    ? "border-rose-400/80 dark:border-rose-900/80 ring-1 ring-rose-500/20"
+                className={`relative flex flex-col justify-between rounded-2xl border transition-all p-5 shadow-xs hover:shadow-md ${
+                  isOverLimit
+                    ? "border-rose-600 dark:border-rose-500 ring-2 ring-rose-600/40 bg-rose-50/25 dark:bg-rose-950/30"
+                    : isCritical
+                    ? "border-rose-400 dark:border-rose-800 ring-2 ring-rose-500/25 bg-rose-50/15 dark:bg-rose-950/20"
                     : isWarning
-                    ? "border-amber-400/80 dark:border-amber-800/80 ring-1 ring-amber-500/20"
-                    : "border-slate-200/80 dark:border-slate-800/80"
+                    ? "border-amber-400/80 dark:border-amber-800/80 ring-1 ring-amber-500/20 bg-amber-50/10 dark:bg-amber-950/10"
+                    : "border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900"
                 }`}
               >
+                {/* Critical >90% ribbon/badge on top edge */}
+                {isCritical && (
+                  <div className="absolute -top-3 left-4 right-4 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase px-2.5 py-0.5 shadow-md shadow-rose-600/30 animate-pulse">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>{isOverLimit ? "LIMIT 100% PRZEKROCZONY" : "FLAGA KRYTYCZNA >90%"}</span>
+                    </span>
+                    {c.estimatedReplacementDate && (
+                      <span className="rounded-full bg-slate-900/80 text-white text-[9px] font-bold px-2 py-0.5 backdrop-blur-xs">
+                        Wymiana: {c.estimatedReplacementDate}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Header: Component Name & Bike Badge */}
-                <div>
+                <div className={isCritical ? "pt-1" : ""}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-0.5">
                       <span className="inline-block rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-400">
@@ -937,9 +1261,9 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                     <div
                       className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-black tabular-nums border ${
                         isCritical
-                          ? "bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 animate-pulse"
+                          ? "bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/25 animate-pulse"
                           : isWarning
-                          ? "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
+                          ? "bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400"
                           : "bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400"
                       }`}
                     >
@@ -947,9 +1271,9 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Multi-Tier Color-Coded Progress Bar with 90% threshold notch */}
                   <div className="mt-4">
-                    <div className="flex justify-between text-xs font-bold tabular-nums mb-1">
+                    <div className="flex justify-between items-center text-xs font-bold tabular-nums mb-1.5">
                       <span className="text-slate-800 dark:text-slate-200">
                         {c.trackingType === "distance_km"
                           ? `${c.calculatedCurrent} km`
@@ -957,21 +1281,43 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                           ? `${c.calculatedCurrent} h`
                           : `${c.calculatedCurrent} dni`}
                       </span>
-                      <span className="text-slate-400">
-                        limit:{" "}
-                        {c.trackingType === "distance_km"
-                          ? `${c.maxValue} km`
-                          : c.trackingType === "hours"
-                          ? `${c.maxValue} h`
-                          : `${c.maxValue} dni`}
-                      </span>
+                      <div className="flex items-center gap-1 text-[11px]">
+                        {isCritical && (
+                          <span className="text-rose-600 dark:text-rose-400 font-black animate-pulse flex items-center gap-0.5 mr-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>&gt;90% ZUŻYCIE</span>
+                          </span>
+                        )}
+                        <span className="text-slate-400">
+                          max:{" "}
+                          {c.trackingType === "distance_km"
+                            ? `${c.maxValue} km`
+                            : c.trackingType === "hours"
+                            ? `${c.maxValue} h`
+                            : `${c.maxValue} dni`}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="h-3 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden p-0.5">
+                    {/* Progress Track */}
+                    <div className="relative h-3.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden p-0.5">
+                      {/* Vertical line indicator at exactly 90% */}
+                      <div
+                        className="absolute top-0 bottom-0 right-[10%] w-0.5 bg-rose-500/60 dark:bg-rose-400/70 z-10"
+                        title="Próg krytyczny 90%"
+                      />
+                      {/* Red danger zone tint for 90-100% */}
+                      <div
+                        className="absolute top-0 bottom-0 right-0 w-[10%] bg-rose-500/15 dark:bg-rose-500/20 pointer-events-none"
+                        title="Strefa krytyczna (>90%)"
+                      />
+
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          isCritical
-                            ? "bg-rose-500"
+                          isOverLimit
+                            ? "bg-[repeating-linear-gradient(45deg,#e11d48,#e11d48_8px,#be123c_8px,#be123c_16px)] animate-pulse shadow-xs"
+                            : isCritical
+                            ? "bg-gradient-to-r from-amber-500 via-rose-500 to-rose-600 animate-pulse shadow-xs"
                             : isWarning
                             ? "bg-amber-500"
                             : c.wearPercent > 50
@@ -981,33 +1327,78 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                         style={{ width: `${Math.min(100, c.wearPercent)}%` }}
                       />
                     </div>
+
+                    {/* Sub-label showing zone thresholds */}
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-0.5">
+                      <span>0%</span>
+                      <span className="text-amber-500 font-medium">75% ostrzeżenie</span>
+                      <span className="text-rose-500 font-bold flex items-center gap-0.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                        <span>90% wymiana</span>
+                      </span>
+                      <span>100%</span>
+                    </div>
                   </div>
 
                   {/* Estimation & status note */}
-                  <div className="mt-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 text-xs space-y-1">
+                  <div
+                    className={`mt-3 rounded-xl p-2.5 text-xs space-y-1.5 ${
+                      isCritical
+                        ? "bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/50"
+                        : "bg-slate-50 dark:bg-slate-950/70"
+                    }`}
+                  >
                     <div className="flex items-center justify-between font-semibold">
                       <span className="text-slate-500">Kondycja:</span>
                       <span
                         className={
                           isCritical
-                            ? "text-rose-600 dark:text-rose-400 font-bold"
+                            ? "text-rose-600 dark:text-rose-400 font-black flex items-center gap-1"
                             : isWarning
                             ? "text-amber-600 dark:text-amber-400 font-bold"
                             : "text-emerald-600 dark:text-emerald-400"
                         }
                       >
-                        {isCritical
-                          ? "Krytyczne zużycie / Wymień"
+                        {isCritical && <AlertTriangle className="h-3 w-3" />}
+                        {isOverLimit
+                          ? "Limit przekroczony! Wymień natychmiast"
+                          : isCritical
+                          ? "Krytyczne zużycie (>90%)"
                           : isWarning
                           ? "Zalecany przegląd"
                           : "Bardzo dobry stan"}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                       <span>Prognoza:</span>
-                      <span className="font-medium">{c.remainingEstimateText}</span>
+                      <span className={`font-bold ${isCritical ? "text-rose-600 dark:text-rose-400" : ""}`}>
+                        {c.remainingEstimateText}
+                      </span>
                     </div>
+
+                    {/* Chain specific quick maintenance status */}
+                    {c.category === "chain" && (
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/60">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <Droplets className="h-3 w-3 text-sky-500" />
+                          <span>Smar / Wosk:</span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {c.lastLubeKm ? `${c.lastLubeKm} km temu` : "Brak wpisu"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuickLubeComponent(c)}
+                            title="Zarejestruj smarowanie / woskowanie łańcucha"
+                            className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                          >
+                            + Zapisz wosk
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-slate-500 text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/60">
                       <span>Montaż: {c.installedAt}</span>
@@ -1025,10 +1416,14 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setReplaceModalComponent(c)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 py-1.5 px-3 text-xs font-bold transition-colors"
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all cursor-pointer ${
+                      isCritical
+                        ? "bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/25"
+                        : "bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300"
+                    }`}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Wymień / Serwis</span>
+                    <span>{isCritical ? "Zmień teraz (Reset)" : "Wymień / Serwis"}</span>
                   </button>
 
                   <div className="flex items-center gap-1">
@@ -1039,7 +1434,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                         setAddComponentModal(true);
                       }}
                       title="Edytuj komponent"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
@@ -1051,7 +1446,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
                         }
                       }}
                       title="Usuń komponent"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                      className="p-2 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1101,6 +1496,291 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Modal: Trip Simulator (Usprawnienie 1) */}
+      {showSimulatorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Compass className="h-5 w-5 text-rose-600" />
+                <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                  Symulator Trasy / Wyprawy
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSimulatorModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
+              Wpisz planowany dystans wyprawy lub wyścigu. Symulator natychmiast sprawdzi, które części przekroczą krytyczną barierę <strong>90%</strong> lub <strong>100%</strong> w trakcie jazdy.
+            </p>
+
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold">
+                <span className="text-slate-700 dark:text-slate-300">Planowany dystans:</span>
+                <span className="text-rose-600 dark:text-rose-400 font-display text-base">
+                  {simulatorTripKm} km
+                </span>
+              </div>
+              <input
+                type="range"
+                min={30}
+                max={1000}
+                step={10}
+                value={simulatorTripKm}
+                onChange={(e) => setSimulatorTripKm(Number(e.target.value))}
+                className="w-full accent-rose-600 cursor-pointer"
+              />
+              <div className="flex gap-2 justify-between">
+                {[100, 200, 350, 500, 800].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setSimulatorTripKm(d)}
+                    className="text-[11px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  >
+                    {d} km
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Projected results */}
+            <div className="mt-4 space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Prognoza stanu części po przejechaniu {simulatorTripKm} km:
+              </h4>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {simulatedTripResults.map((res) => (
+                  <div
+                    key={res.id}
+                    className={`rounded-xl p-3 border text-xs flex items-center justify-between ${
+                      res.projectedPercent >= 100
+                        ? "border-rose-400 bg-rose-50/70 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 font-bold"
+                        : res.projectedPercent >= 90
+                        ? "border-amber-400 bg-amber-50/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                        : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold flex items-center gap-1.5">
+                        <span>{res.name}</span>
+                        {res.willCross90 && (
+                          <span className="text-[10px] bg-rose-600 text-white rounded-md px-1.5 py-0.2">
+                            WEJDZIE W &gt;90%
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-500">
+                        Obecnie: {res.calculatedCurrent} {res.trackingType === "hours" ? "h" : "km"} ({res.wearPercent}%) → Po trasie: {res.projectedCurrent} ({res.projectedPercent}%)
+                      </span>
+                    </div>
+
+                    <span
+                      className={`text-sm font-black tabular-nums ${
+                        res.projectedPercent >= 90 ? "text-rose-600 dark:text-rose-400" : ""
+                      }`}
+                    >
+                      {res.projectedPercent}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSimulatorModal(false)}
+                className="rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2 text-xs font-bold"
+              >
+                Zamknij symulator
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Shopping List & Workshop Checklist (Usprawnienie 2) */}
+      {showShoppingListModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5 text-rose-600" />
+                <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                  Lista Zakupów i Zlecenie Serwisowe
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShoppingListModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">
+              Zestawienie komponentów o zużyciu <strong>&ge; 75%</strong> do zakupu w sklepie rowerowym lub przekazania mechanikowi.
+            </p>
+
+            <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
+              {calculatedComponents.filter((c) => c.wearPercent >= 75).length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400">
+                  Brak części wymagających zakupu! Wszystkie Twoje komponenty mają zużycie poniżej 75%.
+                </div>
+              ) : (
+                calculatedComponents
+                  .filter((c) => c.wearPercent >= 75)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{item.name}</span>
+                          <span
+                            className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${
+                              item.wearPercent >= 90
+                                ? "bg-rose-600 text-white"
+                                : "bg-amber-500 text-white"
+                            }`}
+                          >
+                            {item.wearPercent}%
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {item.bikeName} {item.brandModel ? `· Model: ${item.brandModel}` : ""}
+                        </p>
+                      </div>
+
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                        {item.remainingValue}{" "}
+                        {item.trackingType === "distance_km" ? "km do 100%" : "do limitu"}
+                      </span>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const criticals = calculatedComponents.filter((c) => c.wearPercent >= 75);
+                  const text = `DARIERPRO - ZLECENIE SERWISOWE / LISTA ZAKUPÓW:\n` +
+                    criticals.map((c) => `- [${c.wearPercent}% ZUŻYCIA] ${c.bikeName}: ${c.name} (${c.brandModel || "brak modelu"}) - Przebieg: ${c.calculatedCurrent}/${c.maxValue}`).join("\n");
+                  navigator.clipboard.writeText(text);
+                  setCopiedClipboard(true);
+                  setTimeout(() => setCopiedClipboard(false), 2000);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              >
+                {copiedClipboard ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                <span>{copiedClipboard ? "Skopiowano do schowka!" : "Kopiuj listę do SMS / serwisu"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowShoppingListModal(false)}
+                className="rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2 text-xs font-bold"
+              >
+                Zamknij
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Quick Chain Wax/Lube Logger (Usprawnienie 3) */}
+      {quickLubeComponent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl">
+            <h3 className="font-display text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Droplets className="h-5 w-5 text-sky-500" />
+              <span>Zarejestruj Smarowanie / Wosk</span>
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Komponent: <strong>{quickLubeComponent.name}</strong>. Wpis nie zeruje całkowitego limitu łańcucha, lecz odświeża interwał smarowania.
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const lubeType = (fd.get("lubeType") as string) || "Wosk na gorąco Silca";
+                const today = localTodayIso();
+
+                // Update component lastLubeDate
+                const updated = components.map((c) =>
+                  c.id === quickLubeComponent.id
+                    ? { ...c, lastLubeDate: today, lastLubeKm: 0, notes: `${c.notes || ""} [Ostatni wosk: ${today}]`.trim() }
+                    : c
+                );
+                persistComponents(updated);
+
+                // Add logbook entry
+                const log: ServiceLogEntry = {
+                  id: `srv_lube_${Date.now()}`,
+                  componentId: quickLubeComponent.id,
+                  componentName: quickLubeComponent.name,
+                  bikeName: quickLubeComponent.bikeName,
+                  serviceDate: today,
+                  serviceType: "smarowanie",
+                  mileageAtService: (quickLubeComponent as any).calculatedCurrent || 0,
+                  costPln: 0,
+                  notes: `Smarowanie / woskowanie: ${lubeType}`,
+                  createdAt: new Date().toISOString(),
+                };
+                persistServiceLogs([log, ...serviceLogs]);
+
+                setQuickLubeComponent(null);
+              }}
+              className="mt-4 space-y-3"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Środek smarny:
+                </label>
+                <select
+                  name="lubeType"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-slate-100"
+                >
+                  <option value="Wosk na gorąco (Hot Melt Wax)">Wosk na gorąco (Silca / Molten Speed)</option>
+                  <option value="Wosk w płynie (Drip Wax)">Wosk w płynie (Squirt / Silca Super Secret)</option>
+                  <option value="Oliwka na suche warunki (Dry Lube)">Oliwka Dry (Muc-Off / Finish Line)</option>
+                  <option value="Oliwka na mokre warunki (Wet Lube)">Oliwka Wet (Błoto / Deszcz)</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickLubeComponent(null)}
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 text-xs font-bold shadow-sm"
+                >
+                  Zapisz smarowanie
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Replace / Service Component */}
       {replaceModalComponent && (
@@ -1567,7 +2247,7 @@ export const GearWearView: React.FC<GearWearViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLogDrawer(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 ✕
               </button>

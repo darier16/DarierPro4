@@ -144,6 +144,7 @@ interface TopBarProps {
   onSportFilterChange: (sport: SportFilter) => void;
   daysWindow: number;
   onDaysWindowChange: (days: number) => void;
+  criticalGearCount?: number;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -165,6 +166,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSportFilterChange,
   daysWindow,
   onDaysWindowChange,
+  criticalGearCount,
 }) => {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 transition-colors">
@@ -300,6 +302,14 @@ export const TopBar: React.FC<TopBarProps> = ({
                     }`}
                   />
                   <span>{tab.label}</span>
+                  {tab.id === "gear" && typeof criticalGearCount === "number" && criticalGearCount > 0 && (
+                    <span
+                      title={`${criticalGearCount} komponentów wymaga pilnej uwagi (>90% zużycia)`}
+                      className="inline-flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-black h-4 min-w-4 px-1 shadow-xs animate-pulse"
+                    >
+                      {criticalGearCount}
+                    </span>
+                  )}
                 </button>
               );
             })}

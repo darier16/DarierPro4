@@ -133,6 +133,24 @@ export default function App() {
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(null);
   const [cloudComponents, setCloudComponents] = useState<CloudGearComponent[] | undefined>(undefined);
   const [cloudServiceRecords, setCloudServiceRecords] = useState<CloudServiceRecord[] | undefined>(undefined);
+  const [criticalGearCount, setCriticalGearCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("darierpro_components_list");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(
+            (c: { currentValue?: number; baseValue?: number; maxValue?: number }) => {
+              const val = c.currentValue ?? c.baseValue ?? 0;
+              const max = c.maxValue || 3000;
+              return val / max >= 0.9;
+            }
+          ).length;
+        }
+      }
+    } catch {}
+    return 2; // Starter data has 2 components above 90%
+  });
 
   // Cloud backup & auto-sync trigger
   const triggerCloudBackupAndSync = useCallback(
@@ -779,6 +797,7 @@ export default function App() {
         onSportFilterChange={setSportFilter}
         daysWindow={daysWindow}
         onDaysWindowChange={setDaysWindow}
+        criticalGearCount={criticalGearCount}
       />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -796,6 +815,7 @@ export default function App() {
             allActivities={payload?.activities || []}
             cloudComponents={cloudComponents}
             cloudServiceRecords={cloudServiceRecords}
+            onCriticalCountChange={setCriticalGearCount}
             onSaveComponentsToCloud={async (comps) => {
               if (currentUser) {
                 await saveComponentsToCloud(currentUser.uid, comps);
